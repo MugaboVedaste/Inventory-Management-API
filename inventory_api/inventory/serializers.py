@@ -20,6 +20,7 @@ class InventoryItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = InventoryItem
         fields = '__all__'
+        read_only_fields = ['owner']
 
 class InventoryChangeHistorySerializer(serializers.ModelSerializer):
     class Meta:

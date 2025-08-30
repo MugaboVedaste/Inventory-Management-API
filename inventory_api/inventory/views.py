@@ -14,12 +14,42 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'supplier']              # ?search=Acme
     ordering_fields = ['name', 'price', 'quantity']
 
+    def get_queryset(self):
+        return InventoryItem.objects.filter(owner=self.request.user)
+
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        item = serializer.save(owner=self.request.user)
+        # Initial history entry
+        InventoryChangeHistory.objects.create(
+            item=item,
+            old_quantity=0,
+            new_quantity=item.quantity,
+            changed_by=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        old_item = self.get_object()
+        item = serializer.save()
+        if old_item.quantity != item.quantity:
+            InventoryChangeHistory.objects.create(
+                item=item,
+                old_quantity=old_item.quantity,
+                new_quantity=item.quantity,
+                changed_by=self.request.user
+            )
+
 
 class ItemHistoryView(generics.ListAPIView):
     serializer_class = InventoryChangeHistorySerializer
     permission_classes = [permissions.IsAuthenticated]
+    def get_queryset(self):
+        # Ensure user sees only their items' history
+        return InventoryChangeHistory.objects.filter(
+            item__owner=self.request.user,
+            item_id=self.kwargs['pk']
+        )
+
+    
 
     def get_queryset(self):
         return InventoryChangeHistory.objects.filter(item_id=self.kwargs['pk'])
